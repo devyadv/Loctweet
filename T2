@@ -1,0 +1,47 @@
+// Define types
+type Sentiment =
+  | "strong positive"
+  | "moderately positive"
+  | "weak positive"
+  | "neutral"
+  | "weak negative"
+  | "moderately negative"
+  | "strong negative";
+
+// Central base definition
+const sentimentMap = {
+  "strong positive":  { color: "#32BE32", score: 1 },
+  "moderately positive": { color: "#78FF78", score: 0.8 },
+  "weak positive": { color: "#C8FFC8", score: 0.5 },
+  "neutral": { color: "#FFFFFF", score: 0 },
+  "weak negative": { color: "#FFC8C8", score: -0.5 },
+  "moderately negative": { color: "#F55959", score: -0.8 },
+  "strong negative": { color: "#EF5555", score: -1 },
+} as const;
+
+// 1️⃣ Export sentimentColors (key → color)
+export const sentimentColors = Object.fromEntries(
+  Object.entries(sentimentMap).map(([k, v]) => [k, v.color])
+) as Record<Sentiment, string>;
+
+// 2️⃣ Export liberalColors (same as sentimentColors, can customize later)
+export const liberalColors = { ...sentimentColors };
+
+// 3️⃣ Export conservativeColorsList (array of colors)
+export const conservativeColorsList = Object.values(sentimentColors);
+
+// 4️⃣ Export liberalColorsList (array of colors)
+export const liberalColorsList = [...conservativeColorsList];
+
+// 5️⃣ Export colorToSentiment (array of { label, score })
+export const colorToSentiment = Object.entries(sentimentMap).map(([label, v]) => ({
+  label,
+  score: v.score,
+}));
+
+// 6️⃣ Export labelScores (key → score)
+export const labelScores = Object.fromEntries(
+  Object.entries(sentimentMap).map(([k, v]) => [k, v.score])
+) as Record<Sentiment, number>;
+
+
