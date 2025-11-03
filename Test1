@@ -1,0 +1,35 @@
+type Sentiment =
+  | "strong positive"
+  | "moderately positive"
+  | "weak positive"
+  | "neutral"
+  | "weak negative"
+  | "moderately negative"
+  | "strong negative";
+
+interface SentimentData {
+  color: string;
+  score: number;
+}
+
+export const sentimentMap: Record<Sentiment, SentimentData> = {
+  "strong positive": { color: "#32BE32", score: 1 },
+  "moderately positive": { color: "#78FF78", score: 0.8 },
+  "weak positive": { color: "#C8FFC8", score: 0.5 },
+  "neutral": { color: "#FFFFFF", score: 0 },
+  "weak negative": { color: "#FFC8C8", score: -0.5 },
+  "moderately negative": { color: "#F55959", score: -0.8 },
+  "strong negative": { color: "#EF5555", score: -1 },
+};
+
+// Optional: generate liberal/conservative variations
+const liberalAdjust = (color: string) => color; // placeholder if adjustments needed
+const conservativeAdjust = (color: string) => color; // placeholder if adjustments needed
+
+export const liberalColors = Object.fromEntries(
+  Object.entries(sentimentMap).map(([k, v]) => [k, liberalAdjust(v.color)])
+);
+
+export const conservativeColors = Object.fromEntries(
+  Object.entries(sentimentMap).map(([k, v]) => [k, conservativeAdjust(v.color)])
+);
