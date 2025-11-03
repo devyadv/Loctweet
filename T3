@@ -1,0 +1,51 @@
+type Sentiment =
+  | "strong positive"
+  | "moderately positive"
+  | "weak positive"
+  | "neutral"
+  | "weak negative"
+  | "moderately negative"
+  | "strong negative";
+
+interface SentimentInfo {
+  color: string;
+  score: number;
+}
+
+// Central source of truth
+const sentimentMap: Record<Sentiment, SentimentInfo> = {
+  "strong positive": { color: "#32BE32", score: 1 },
+  "moderately positive": { color: "#78FF78", score: 0.8 },
+  "weak positive": { color: "#C8FFC8", score: 0.5 },
+  "neutral": { color: "#FFFFFF", score: 0 },
+  "weak negative": { color: "#FFC8C8", score: -0.5 },
+  "moderately negative": { color: "#F55959", score: -0.8 },
+  "strong negative": { color: "#EF5555", score: -1 },
+};
+
+// 1️⃣ sentimentColors (exclude "neutral" like original)
+export const sentimentColors = Object.fromEntries(
+  Object.entries(sentimentMap).filter(([key]) => key !== "neutral").map(([k, v]) => [k, v.color])
+) as Record<Exclude<Sentiment, "neutral">, string>;
+
+// 2️⃣ liberalColors (includes all including neutral)
+export const liberalColors = Object.fromEntries(
+  Object.entries(sentimentMap).map(([k, v]) => [k, v.color])
+) as Record<Sentiment, string>;
+
+// 3️⃣ conservativeColorsList (array of colors, same as liberal for now)
+export const conservativeColorsList = Object.values(sentimentMap).map(v => v.color);
+
+// 4️⃣ liberalColorsList (same order)
+export const liberalColorsList = [...conservativeColorsList];
+
+// 5️⃣ colorToSentiment (for mapping)
+export const colorToSentiment = Object.entries(sentimentMap).map(([label, v]) => ({
+  label,
+  score: v.score,
+}));
+
+// 6️⃣ labelScores (label → score)
+export const labelScores = Object.fromEntries(
+  Object.entries(sentimentMap).map(([k, v]) => [k, v.score])
+) as Record<Sentiment, number>;
