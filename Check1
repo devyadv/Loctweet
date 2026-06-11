@@ -1,0 +1,199 @@
+# Spec: Migrate Existing CSS to Barclays Gamma Design System
+
+## Role
+
+You are a senior frontend engineer migrating the CSS of an existing React 18 web application (**LoanMemo**, located under `src/main/webapp/static`) to the **Barclays Gamma design system** (`@barclays/gamma-design-core`, installed in `node_modules/@barclays/gamma-design-core`).
+
+Your job: refactor the CSS/SCSS/styled components I provide so that all visual values (typography, spacing, borders, radii, colors, icons, fonts) come from Gamma design tokens instead of hardcoded values, while keeping the rendered UI visually consistent with Gamma’s intended look.
+
+-----
+
+## 1. Design system overview (ground truth)
+
+### 1.1 Package structure
+
+```
+node_modules/@barclays/gamma-design-core/
+├── css/
+│   ├── index.css                      ← imports everything below
+│   ├── gamma-theme-dark.css
+│   ├── gamma-theme-light.css
+│   ├── gamma-theme-dark-classic.css
+│   ├── gamma-theme-dark-hc.css       ← high contrast
+│   ├── gamma-theme-light-hc.css      ← high contrast
+│   ├── gamma-density-compact.css
+│   ├── gamma-density-regular.css
+│   ├── gamma-density-comfortable.css
+│   ├── gamma-density-spacious.css
+│   └── icons.css
+├── fonts/                             ← Barclays Effra (woff/woff2): light, regular,
+│                                        medium, bold, heavy + italics
+└── docs/
+```
+
+All token CSS files are **auto-generated — never edit them directly**.
+
+### 1.2 How theming and density work
+
+Tokens are scoped by `data-*` attributes on an ancestor element (typically `<html>` or `<body>` or the app root):
+
+```html
+<html data-gamma-theme="light" data-gamma-density="comfortable">
+```
+
+- **Theme** attribute selects color tokens: `dark`, `light`, `dark-classic`, `dark-hc`, `light-hc`.
+- **Density** attribute selects sizing/typography tokens: `compact`, `regular`, `comfortable`, `spacious`.
+- Each density file redefines the same token names with different values (e.g. `--gamma-typography-title-font-size` is `16px` in compact, `20px` in comfortable). **Therefore: never copy a token’s resolved value into component CSS — always reference the variable** so density switching keeps working.
+
+### 1.3 Known token families (verified from the package)
+
+**Border:**
+
+```css
+--gamma-border-width-thin | -medium | -thick        /* 1px / 2px / 2–3px */
+--gamma-border-radius-none | -subtle | -medium | -rounded | -circle
+                                                    /* 0 / 2 / 4 / 6–8 / 9999px */
+```
+
+**Font weight:**
+
+```css
+--gamma-font-weight-regular   /* 400 */
+--gamma-font-weight-bold      /* 500 */
+--gamma-font-weight-button    /* 500 */
+```
+
+**Typography** — per text role: `supersize`, `display`, `title`, `subtitle`, `caption`, `body-sm` (and likely `body`, `body-lg` — discover and confirm). Each role exposes:
+
+```css
+--gamma-typography-{role}-font-family    /* 'Barclays Effra' */
+--gamma-typography-{role}-font-size
+--gamma-typography-{role}-line-height
+--gamma-typography-{role}-font-weight
+/* some roles also have -bold-line-height / -bold-font-weight variants */
+```
+
+**Icons** (`icons.css`): Material Symbols Outlined via `@font-face`, with helper classes:
+
+```css
+.gamma-icon       /* md size, uses --gamma-typography-icon-md-* tokens */
+.gamma-icon.sm    /* --gamma-typography-icon-sm-* */
+.gamma-icon.lg    /* --gamma-typography-icon-lg-* */
+```
+
+**IMPORTANT — discover before you map:** Before writing any migrated CSS, read the actual token files in `node_modules/@barclays/gamma-design-core/css/` (especially one theme file and one density file end-to-end) and build a complete token inventory, including color tokens, spacing tokens, elevation/shadow tokens, and icon typography tokens that are not listed above. Do not invent token names. If a token you need does not exist, flag it (see §5).
+
+-----
+
+## 2. Migration rules
+
+### 2.1 Typography
+
+1. Remove all custom `@font-face` declarations for Effra or any other brand font from app CSS — the design system already ships them. If app CSS loads its own font files, delete those rules and verify `index.css` of the design system is imported once at app entry.
+1. Map every text style to the closest Gamma role using this heuristic (confirm against actual density values):
+- Page hero / largest heading → `supersize`
+- Page heading (h1) → `display`
+- Section heading (h2/h3) / card titles → `title`
+- Sub-headings, labels-with-emphasis → `subtitle`
+- Default paragraph text → `body` (or `body-sm` for dense tables/secondary text)
+- Helper text, timestamps, footnotes → `caption`
+1. Replace each mapped rule’s `font-family`, `font-size`, `line-height`, `font-weight` with the full token set of one role — do not mix roles (e.g. title font-size with caption line-height).
+1. Replace `font-weight: 600/700` with `var(--gamma-font-weight-bold)` and `font-weight: 400` with `var(--gamma-font-weight-regular)`. Buttons use `--gamma-font-weight-button`. Note Gamma’s “bold” is 500 — flag anywhere this visibly changes hierarchy.
+
+### 2.2 Borders and radii
+
+- Map border widths: `1px → thin`, `2px → medium`, `3px+ → thick`.
+- Map radii to the nearest token: `0 → none`, `1–2px → subtle`, `3–5px → medium`, `6–10px → rounded`, pills/circles (`50%`, large px) → `circle`.
+- Mapping must be by nearest token, never exact-match-or-skip. Record every approximation in the report (§6).
+
+### 2.3 Colors
+
+- Inventory all hardcoded colors (hex, rgb/rgba, hsl, named) in the provided CSS.
+- Map each to the semantically correct Gamma color token from the theme files (e.g. surface/background, text-primary/secondary, border, interactive/primary, success/warning/error) — match by **role**, not by closest hex value, so dark and HC themes work automatically.
+- Never reference a theme-specific value directly; only `var(--gamma-...)`.
+- If a color has no reasonable semantic token, flag it instead of guessing.
+
+### 2.4 Icons
+
+- Replace custom icon fonts, inline SVG icons used for standard glyphs, and icon-sizing CSS with `.gamma-icon` (+ `.sm` / `.lg`) and Material Symbols Outlined ligatures where feasible.
+- Where a bespoke SVG must stay (logos, custom illustrations), size it with icon typography tokens rather than hardcoded px.
+
+### 2.5 Density-awareness
+
+- Any padding/margin/gap that visually tracks text size should use tokens (spacing tokens if they exist in the package; otherwise `em` relative to the tokenized font-size) so compact/spacious modes scale correctly.
+- Do not hardcode component heights that would break under a different density (e.g. a 32px input that overflows in spacious mode). Prefer `min-height` driven by line-height + padding tokens.
+
+### 2.6 What NOT to do
+
+- ❌ Never edit anything inside `node_modules/@barclays/gamma-design-core/` (auto-generated, will be overwritten).
+- ❌ Never paste resolved values (“4px”) where a token exists.
+- ❌ Never use `!important` to fight design-system styles; fix specificity instead.
+- ❌ Do not restructure JSX/markup unless required for `.gamma-icon` or `data-gamma-*` attributes; this is a CSS migration.
+- ❌ Do not change visual layout/positioning logic (flex/grid structure) unless it’s broken by tokenization.
+
+-----
+
+## 3. Setup requirements (verify, add if missing)
+
+1. App entry imports the design system once:
+   
+   ```ts
+   import '@barclays/gamma-design-core/css/index.css';
+   ```
+   
+   (Adjust path to the package’s actual export; check its `package.json` `exports`/`main` fields.)
+1. Root element carries default attributes, e.g.:
+   
+   ```html
+   data-gamma-theme="light" data-gamma-density="comfortable"
+   ```
+   
+   If the app already has a theme switcher, wire it to these attributes.
+1. Remove now-duplicated global resets/typography from app CSS that the design system already provides (verify by reading the package CSS, not assumption).
+
+-----
+
+## 4. Process (follow in order)
+
+1. **Inventory the design system**: read `index.css`, one full theme file, one full density file, `icons.css`. Produce a token inventory table.
+1. **Inventory the app CSS I provide**: list every hardcoded font-family, font-size/line-height pair, font-weight, color, border-width, border-radius, and icon usage.
+1. **Produce a mapping table** (old value → token → exactness: exact / approximate / no-token) and show it to me **before** rewriting, if the migration is large. For small files, include it with the diff.
+1. **Rewrite the CSS** applying §2 rules.
+1. **Self-review** against §2.6 and the checklist in §6.
+
+-----
+
+## 5. When unsure
+
+- If no token reasonably matches a value, keep the original value, add a `/* TODO(gamma): no matching token for <value> */` comment, and list it in the report.
+- If two roles are equally plausible for a text style, pick the one matching its semantic function in the UI and note the alternative.
+- Ask me before changing anything that affects layout dimensions of data-dense screens (tables, memo grids).
+
+-----
+
+## 6. Deliverables
+
+For each file migrated, output:
+
+1. The fully rewritten CSS file.
+1. A migration report containing:
+- Mapping table (old → new token, exact/approx flag)
+- List of removed rules (e.g. duplicate @font-face) and why
+- TODOs / missing tokens
+- Any expected visual changes (e.g. bold 700→500) for me to verify
+1. A short manual test checklist: which screens/components to eyeball in each theme (light, dark, light-hc, dark-hc) and at least two densities (compact + comfortable).
+
+-----
+
+## 7. Input
+
+Below is the existing CSS to migrate (and any relevant component markup):
+
+```css
+/* PASTE YOUR CURRENT CSS HERE */
+```
+
+```tsx
+/* OPTIONAL: paste component JSX if icon/markup changes may be needed */
+```
+
